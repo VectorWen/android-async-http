@@ -1,13 +1,13 @@
 /*
     Android Asynchronous Http Client
     Copyright (c) 2011 James Smith <james@loopj.com>
-    http://loopj.com
+    https://github.com/android-async-http/android-async-http
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
 
-        http://www.apache.org/licenses/LICENSE-2.0
+        https://www.apache.org/licenses/LICENSE-2.0
 
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,20 +18,20 @@
 
 package com.loopj.android.http;
 
-import android.util.Log;
-
-import org.apache.http.Header;
-import org.apache.http.HttpStatus;
+import cz.msebera.android.httpclient.Header;
+import cz.msebera.android.httpclient.HttpStatus;
 
 /**
  * Class meant to be used with custom JSON parser (such as GSON or Jackson JSON) <p>&nbsp;</p>
  * {@link #parseResponse(String, boolean)} should be overriden and must return type of generic param
  * class, response will be then handled to implementation of abstract methods {@link #onSuccess(int,
- * org.apache.http.Header[], String, Object)} or {@link #onFailure(int, org.apache.http.Header[],
+ * cz.msebera.android.httpclient.Header[], String, Object)} or {@link #onFailure(int, cz.msebera.android.httpclient.Header[],
  * Throwable, String, Object)}, depending of response HTTP status line (result http code)
+ *
+ * @param <JSON_TYPE> Generic type meant to be returned in callback
  */
 public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpResponseHandler {
-    private static final String LOG_TAG = "BaseJsonHttpResponseHandler";
+    private static final String LOG_TAG = "BaseJsonHttpRH";
 
     /**
      * Creates a new JsonHttpResponseHandler with default charset "UTF-8"
@@ -43,7 +43,7 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
     /**
      * Creates a new JsonHttpResponseHandler with given string encoding
      *
-     * @param encoding result string encoding, see <a href="http://docs.oracle.com/javase/7/docs/api/java/nio/charset/Charset.html">Charset</a>
+     * @param encoding result string encoding, see <a href="https://docs.oracle.com/javase/7/docs/api/java/nio/charset/Charset.html">Charset</a>
      */
     public BaseJsonHttpResponseHandler(String encoding) {
         super(encoding);
@@ -73,7 +73,7 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
     @Override
     public final void onSuccess(final int statusCode, final Header[] headers, final String responseString) {
         if (statusCode != HttpStatus.SC_NO_CONTENT) {
-            new Thread(new Runnable() {
+            Runnable parser = new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -85,7 +85,7 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
                             }
                         });
                     } catch (final Throwable t) {
-                        Log.d(LOG_TAG, "parseResponse thrown an problem", t);
+                        AsyncHttpClient.log.d(LOG_TAG, "parseResponse thrown an problem", t);
                         postRunnable(new Runnable() {
                             @Override
                             public void run() {
@@ -94,7 +94,13 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
                         });
                     }
                 }
-            }).start();
+            };
+            if (!getUseSynchronousMode() && !getUsePoolThread()) {
+                new Thread(parser).start();
+            } else {
+                // In synchronous mode everything should be run on one thread
+                parser.run();
+            }
         } else {
             onSuccess(statusCode, headers, null, null);
         }
@@ -103,7 +109,7 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
     @Override
     public final void onFailure(final int statusCode, final Header[] headers, final String responseString, final Throwable throwable) {
         if (responseString != null) {
-            new Thread(new Runnable() {
+            Runnable parser = new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -115,7 +121,7 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
                             }
                         });
                     } catch (Throwable t) {
-                        Log.d(LOG_TAG, "parseResponse thrown an problem", t);
+                        AsyncHttpClient.log.d(LOG_TAG, "parseResponse thrown an problem", t);
                         postRunnable(new Runnable() {
                             @Override
                             public void run() {
@@ -124,7 +130,13 @@ public abstract class BaseJsonHttpResponseHandler<JSON_TYPE> extends TextHttpRes
                         });
                     }
                 }
-            }).start();
+            };
+            if (!getUseSynchronousMode() && !getUsePoolThread()) {
+                new Thread(parser).start();
+            } else {
+                // In synchronous mode everything should be run on one thread
+                parser.run();
+            }
         } else {
             onFailure(statusCode, headers, throwable, null, null);
         }

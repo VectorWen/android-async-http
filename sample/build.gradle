@@ -1,12 +1,4 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:0.7.+'
-    }
-}
-apply plugin: 'android'
+apply plugin: 'com.android.application'
 
 repositories {
     mavenCentral()
@@ -16,16 +8,26 @@ repositories {
 }
 
 android {
-    compileSdkVersion 19
-    buildToolsVersion '19.0.0'
+    compileSdkVersion 28
 
     defaultConfig {
-        minSdkVersion 3
-        targetSdkVersion 19
+        minSdkVersion 9
+        targetSdkVersion 28
+    }
+
+    flavorDimensions "version"
+    productFlavors {
+        standard {
+            dimension "version"
+        }
     }
 
     lintOptions {
-        abortOnError false
+        xmlReport false
+        warningsAsErrors true
+        quiet false
+        showAll true
+        disable 'OldTargetApi', 'UnusedAttribute', 'LongLogTag', 'TrustAllX509TrustManager', 'GoogleAppIndexingWarning', 'Autofill', 'LabelFor', 'SetTextI18n'
     }
 
     packagingOptions {
@@ -36,6 +38,6 @@ android {
 }
 
 dependencies {
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.2.3'
-    compile project(':library')
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.0'
+    implementation project(':android-async-http')
 }

@@ -5,10 +5,10 @@
     android:fillViewport="true">
 
     <LinearLayout
-        android:focusable="true"
-        android:focusableInTouchMode="true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
         android:orientation="vertical">
 
         <requestFocus />
@@ -36,8 +36,8 @@
                 android:id="@+id/button_cancel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:text="@string/button_cancel" />
+                android:text="@string/button_cancel"
+                android:visibility="gone" />
         </LinearLayout>
 
         <LinearLayout
@@ -81,6 +81,12 @@
                 android:singleLine="false" />
 
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_custom"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"></LinearLayout>
 
         <LinearLayout
             android:id="@+id/layout_response"

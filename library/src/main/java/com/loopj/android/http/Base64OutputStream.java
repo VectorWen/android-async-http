@@ -1,18 +1,31 @@
-package com.loopj.android.http;
+/*
+ * Copyright (C) 2010 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+package com.loopj.android.http;
 
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 public class Base64OutputStream extends FilterOutputStream {
+    private static final byte[] EMPTY = new byte[0];
     private final Base64.Coder coder;
     private final int flags;
-
     private byte[] buffer = null;
     private int bpos = 0;
-
-    private static byte[] EMPTY = new byte[0];
 
     /**
      * Performs Base64 encoding on the data written to the stream, writing the encoded data to
@@ -43,6 +56,7 @@ public class Base64OutputStream extends FilterOutputStream {
         }
     }
 
+    @Override
     public void write(int b) throws IOException {
         // To avoid invoking the encoder/decoder routines for single
         // bytes, we buffer up calls to write(int) in an internal
@@ -71,12 +85,14 @@ public class Base64OutputStream extends FilterOutputStream {
         }
     }
 
+    @Override
     public void write(byte[] b, int off, int len) throws IOException {
         if (len <= 0) return;
         flushBuffer();
         internalWrite(b, off, len, false);
     }
 
+    @Override
     public void close() throws IOException {
         IOException thrown = null;
         try {

@@ -1,13 +1,13 @@
 /*
     Android Asynchronous Http Client
     Copyright (c) 2011 James Smith <james@loopj.com>
-    http://loopj.com
+    https://github.com/android-async-http/android-async-http
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
 
-        http://www.apache.org/licenses/LICENSE-2.0
+        https://www.apache.org/licenses/LICENSE-2.0
 
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,13 +21,10 @@ package com.loopj.android.http;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
-import android.util.Log;
-
-import org.apache.http.client.CookieStore;
-import org.apache.http.cookie.Cookie;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
@@ -35,6 +32,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
+
+import cz.msebera.android.httpclient.client.CookieStore;
+import cz.msebera.android.httpclient.cookie.Cookie;
 
 /**
  * A persistent cookie store which implements the Apache HttpClient {@link CookieStore} interface.
@@ -48,9 +48,9 @@ public class PersistentCookieStore implements CookieStore {
     private static final String COOKIE_PREFS = "CookiePrefsFile";
     private static final String COOKIE_NAME_STORE = "names";
     private static final String COOKIE_NAME_PREFIX = "cookie_";
-
     private final ConcurrentHashMap<String, Cookie> cookies;
     private final SharedPreferences cookiePrefs;
+    private boolean omitNonPersistentCookies = false;
 
     /**
      * Construct a persistent cookie store.
@@ -82,6 +82,8 @@ public class PersistentCookieStore implements CookieStore {
 
     @Override
     public void addCookie(Cookie cookie) {
+        if (omitNonPersistentCookies && !cookie.isPersistent())
+            return;
         String name = cookie.getName() + cookie.getDomain();
 
         // Save cookie into local store, or remove if expired
@@ -95,7 +97,7 @@ public class PersistentCookieStore implements CookieStore {
         SharedPreferences.Editor prefsWriter = cookiePrefs.edit();
         prefsWriter.putString(COOKIE_NAME_STORE, TextUtils.join(",", cookies.keySet()));
         prefsWriter.putString(COOKIE_NAME_PREFIX + name, encodeCookie(new SerializableCookie(cookie)));
-        prefsWriter.commit();
+        prefsWriter.apply();
     }
 
     @Override
@@ -106,7 +108,7 @@ public class PersistentCookieStore implements CookieStore {
             prefsWriter.remove(COOKIE_NAME_PREFIX + name);
         }
         prefsWriter.remove(COOKIE_NAME_STORE);
-        prefsWriter.commit();
+        prefsWriter.apply();
 
         // Clear cookies from local store
         cookies.clear();
@@ -136,7 +138,7 @@ public class PersistentCookieStore implements CookieStore {
         if (clearedAny) {
             prefsWriter.putString(COOKIE_NAME_STORE, TextUtils.join(",", cookies.keySet()));
         }
-        prefsWriter.commit();
+        prefsWriter.apply();
 
         return clearedAny;
     }
@@ -144,6 +146,29 @@ public class PersistentCookieStore implements CookieStore {
     @Override
     public List<Cookie> getCookies() {
         return new ArrayList<Cookie>(cookies.values());
+    }
+
+    /**
+     * Will make PersistentCookieStore instance ignore Cookies, which are non-persistent by
+     * signature (`Cookie.isPersistent`)
+     *
+     * @param omitNonPersistentCookies true if non-persistent cookies should be omited
+     */
+    public void setOmitNonPersistentCookies(boolean omitNonPersistentCookies) {
+        this.omitNonPersistentCookies = omitNonPersistentCookies;
+    }
+
+    /**
+     * Non-standard helper method, to delete cookie
+     *
+     * @param cookie cookie to be removed
+     */
+    public void deleteCookie(Cookie cookie) {
+        String name = cookie.getName() + cookie.getDomain();
+        cookies.remove(name);
+        SharedPreferences.Editor prefsWriter = cookiePrefs.edit();
+        prefsWriter.remove(COOKIE_NAME_PREFIX + name);
+        prefsWriter.apply();
     }
 
     /**
@@ -159,7 +184,8 @@ public class PersistentCookieStore implements CookieStore {
         try {
             ObjectOutputStream outputStream = new ObjectOutputStream(os);
             outputStream.writeObject(cookie);
-        } catch (Exception e) {
+        } catch (IOException e) {
+            AsyncHttpClient.log.d(LOG_TAG, "IOException in encodeCookie", e);
             return null;
         }
 
@@ -179,8 +205,10 @@ public class PersistentCookieStore implements CookieStore {
         try {
             ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
             cookie = ((SerializableCookie) objectInputStream.readObject()).getCookie();
-        } catch (Exception exception) {
-            Log.d(LOG_TAG, "decodeCookie failed", exception);
+        } catch (IOException e) {
+            AsyncHttpClient.log.d(LOG_TAG, "IOException in decodeCookie", e);
+        } catch (ClassNotFoundException e) {
+            AsyncHttpClient.log.d(LOG_TAG, "ClassNotFoundException in decodeCookie", e);
         }
 
         return cookie;
